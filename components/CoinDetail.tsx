@@ -262,7 +262,7 @@ export const CoinDetail: React.FC<Props> = ({ coin, onBack }) => {
     
     try {
       const now = new Date();
-      const published = new Date(date);
+      let published = new Date(date);
       
       // 유효하지 않은 날짜 체크
       if (isNaN(published.getTime())) {
@@ -270,31 +270,68 @@ export const CoinDetail: React.FC<Props> = ({ coin, onBack }) => {
         return '알 수 없음';
       }
       
-      const diffMs = now.getTime() - published.getTime();
+      // 현재 연도와 비교하여 미래 날짜 보정 (연도가 1년 이상 미래인 경우 현재 연도로 보정)
+      const currentYear = now.getFullYear();
+      const publishedYear = published.getFullYear();
       
-      // 미래 날짜인 경우 (1시간 이내의 작은 차이는 허용 - 타임존 차이 보정)
-      if (diffMs < -3600000) { // 1시간 이상 미래
-        // 미래 날짜는 절대 시간 표시 (한국 시간)
-        return published.toLocaleString('ko-KR', {
-          year: 'numeric',
-          month: 'short',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
+      if (publishedYear > currentYear + 1) {
+        // 1년 이상 미래인 경우 현재 연도로 보정
+        published.setFullYear(currentYear);
+        console.warn('[formatTimeAgo] 미래 날짜 보정:', {
+          original: date,
+          corrected: published.toISOString()
         });
       }
       
+      const diffMs = now.getTime() - published.getTime();
+      
       // 7일 = 7 * 24 * 60 * 60 * 1000 밀리초
       const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+      
+      // 미래 날짜인 경우 (타임존 차이로 인한 작은 음수는 허용)
+      if (diffMs < 0) {
+        const absDiffMs = Math.abs(diffMs);
+        
+        // 7일 이내의 미래 날짜는 상대 시간으로 표시
+        if (absDiffMs < SEVEN_DAYS_MS) {
+          const diffSeconds = Math.floor(absDiffMs / 1000);
+          const diffMinutes = Math.floor(absDiffMs / (1000 * 60));
+          const diffHours = Math.floor(absDiffMs / (1000 * 60 * 60));
+          const diffDays = Math.floor(absDiffMs / (1000 * 60 * 60 * 24));
+          
+          if (diffDays > 0) {
+            return `${diffDays}일 전`;
+          } else if (diffHours > 0) {
+            return `${diffHours}시간 전`;
+          } else if (diffMinutes > 0) {
+            return `${diffMinutes}분 전`;
+          } else if (diffSeconds > 0) {
+            return `${diffSeconds}초 전`;
+          } else {
+            return '방금 전';
+          }
+        }
+        
+        // 7일 이상 미래인 경우에만 절대 시간 표시
+        return published.toLocaleString('ko-KR', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        });
+      }
       
       // 7일 이상 지난 경우: 절대 시간 표시 (한국 시간)
       if (diffMs >= SEVEN_DAYS_MS) {
         return published.toLocaleString('ko-KR', {
           year: 'numeric',
-          month: 'short',
+          month: 'long',
           day: 'numeric',
           hour: '2-digit',
-          minute: '2-digit'
+          minute: '2-digit',
+          hour12: true
         });
       }
       
