@@ -150,7 +150,7 @@ function App() {
         }
       } else {
         // 분석 실패 시 에러 상태로 표시
-        const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+        const apiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
         console.error(`[Analysis] ${coin.symbol} 분석 실패 - 데이터 부족`);
         console.error(`[Analysis] 백엔드 서버 확인: ${apiUrl}`);
         updatedCoins[index] = { ...coin, analysis: undefined };

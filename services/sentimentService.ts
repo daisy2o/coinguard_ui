@@ -2,7 +2,7 @@
 
 // VITE_API_URL 또는 VITE_API_BASE_URL 지원 (Railway 배포용)
 const API_BASE_URL = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
-const API_TIMEOUT_MS = 10000; // 10초 타임아웃
+const API_TIMEOUT_MS = 30000; // 30초 타임아웃 (Railway 백엔드 대응)
 
 // 디버깅: API_BASE_URL 확인
 console.log(`[API] API_BASE_URL 설정: ${API_BASE_URL}`);

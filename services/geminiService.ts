@@ -165,7 +165,8 @@ export const analyzeCoinSignal = async (coin: CoinData): Promise<AIAnalysisResul
     
     const coinType = getCoinType(coin.symbol);
     console.log(`[API] ${coin.symbol}${coinType ? ` (${coinType})` : ''} 데이터를 가져오는 중...`);
-    console.log(`[API] API_BASE_URL: ${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}`);
+    const apiBaseUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+    console.log(`[API] API_BASE_URL: ${apiBaseUrl}`);
     
     // 모든 코인에 대해 API 호출 시도 (coinType이 없어도 시도)
     const [newsStats, socialStats, riskData, coinMarketData] = await Promise.all([
@@ -199,7 +200,7 @@ export const analyzeCoinSignal = async (coin: CoinData): Promise<AIAnalysisResul
     const hasRequiredData = newsStats || socialStats;
     
     if (!hasRequiredData) {
-      const apiUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+      const apiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
       console.error(`[API] ${coin.symbol}: 필수 데이터(뉴스/소셜)가 없어 분석할 수 없습니다.`);
       console.error(`[API] 백엔드 서버가 실행 중인지 확인하세요: ${apiUrl}`);
       console.error(`[API] CORS 에러가 발생한 경우, 백엔드에서 CORS 헤더를 설정해야 합니다.`);
