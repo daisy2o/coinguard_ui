@@ -1,0 +1,5 @@
+{
+  "name": "CoinGuard AI",
+  "description": "Real-time crypto market signal analysis platform integrating News, Social, and On-chain data with Gemini-powered sentiment intelligence.",
+  "requestFramePermissions": []
+}
