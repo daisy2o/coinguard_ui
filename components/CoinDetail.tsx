@@ -609,18 +609,18 @@ export const CoinDetail: React.FC<Props> = ({ coin, onBack }) => {
                         <Activity className="w-4 h-4 text-indigo-500"/> PRICE ACTION
                     </h3>
                     {/* 시간대 선택 버튼 */}
-                    <div className="flex gap-2">
+                    <div className="flex gap-1.5 md:gap-2">
                       {(['1min', '1h', '1d', '1w', '1m'] as TimeFrame[]).map((tf) => (
                         <button
                           key={tf}
                           onClick={() => setTimeFrame(tf)}
-                          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                          className={`px-2 py-1.5 md:px-4 md:py-2 rounded-lg md:rounded-xl text-[10px] md:text-xs font-bold transition-all ${
                             timeFrame === tf
                               ? 'bg-indigo-600 text-white shadow-md'
                               : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                           }`}
                         >
-                          {tf === '1min' ? '1분' : tf === '1h' ? '1시간' : tf === '1d' ? '1일' : tf === '1w' ? '1주' : '1월'}
+                          {tf === '1min' ? '분' : tf === '1h' ? '시간' : tf === '1d' ? '일' : tf === '1w' ? '주' : '월'}
                         </button>
                       ))}
                     </div>
