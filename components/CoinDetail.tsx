@@ -256,24 +256,68 @@ export const CoinDetail: React.FC<Props> = ({ coin, onBack }) => {
     }
   };
 
-  // 시간 포맷팅 헬퍼 함수
+  // 시간 포맷팅 헬퍼 함수 (한국 시간 기준)
   const formatTimeAgo = (date: Date | string | undefined): string => {
     if (!date) return '알 수 없음';
-    const now = new Date();
-    const published = new Date(date);
-    const diffMs = now.getTime() - published.getTime();
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffMinutes = Math.floor(diffMs / (1000 * 60));
-    const diffDays = Math.floor(diffHours / 24);
     
-    if (diffDays > 0) {
-      return `${diffDays}일 전`;
-    } else if (diffHours > 0) {
-      return `${diffHours}시간 전`;
-    } else if (diffMinutes > 0) {
-      return `${diffMinutes}분 전`;
-    } else {
-      return '방금 전';
+    try {
+      const now = new Date();
+      const published = new Date(date);
+      
+      // 유효하지 않은 날짜 체크
+      if (isNaN(published.getTime())) {
+        console.warn('[formatTimeAgo] 유효하지 않은 날짜:', date);
+        return '알 수 없음';
+      }
+      
+      const diffMs = now.getTime() - published.getTime();
+      
+      // 미래 날짜인 경우 (1시간 이내의 작은 차이는 허용 - 타임존 차이 보정)
+      if (diffMs < -3600000) { // 1시간 이상 미래
+        // 미래 날짜는 절대 시간 표시 (한국 시간)
+        return published.toLocaleString('ko-KR', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      }
+      
+      // 7일 = 7 * 24 * 60 * 60 * 1000 밀리초
+      const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+      
+      // 7일 이상 지난 경우: 절대 시간 표시 (한국 시간)
+      if (diffMs >= SEVEN_DAYS_MS) {
+        return published.toLocaleString('ko-KR', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      }
+      
+      // 7일 이내: 상대 시간 표시
+      const diffSeconds = Math.floor(diffMs / 1000);
+      const diffMinutes = Math.floor(diffMs / (1000 * 60));
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      
+      if (diffDays > 0) {
+        return `${diffDays}일 전`;
+      } else if (diffHours > 0) {
+        return `${diffHours}시간 전`;
+      } else if (diffMinutes > 0) {
+        return `${diffMinutes}분 전`;
+      } else if (diffSeconds > 0) {
+        return `${diffSeconds}초 전`;
+      } else {
+        return '방금 전';
+      }
+    } catch (error) {
+      console.error('[formatTimeAgo] 날짜 파싱 에러:', error, date);
+      return '알 수 없음';
     }
   };
 
@@ -308,14 +352,25 @@ export const CoinDetail: React.FC<Props> = ({ coin, onBack }) => {
       // 뉴스 데이터 변환
       if (newsData && newsData.data.length > 0) {
         console.log(`[CoinDetail] 실제 뉴스 데이터 사용: ${newsData.data.length}개`);
-        const newsItems: NewsItem[] = newsData.data.map((item: NewsItemResponse) => ({
-          id: item.id,
-          title: item.title,
-          source: item.provider || item.source_type || 'Unknown',
-          time: formatTimeAgo(item.published_at),
-          sentiment: item.sentiment || 'neutral',
-          url: item.url
-        }));
+        const newsItems: NewsItem[] = newsData.data.map((item: NewsItemResponse) => {
+          // 날짜 디버깅
+          if (import.meta.env.DEV && item.published_at) {
+            console.log(`[CoinDetail] 뉴스 날짜:`, {
+              original: item.published_at,
+              type: typeof item.published_at,
+              parsed: new Date(item.published_at),
+              formatted: formatTimeAgo(item.published_at)
+            });
+          }
+          return {
+            id: item.id,
+            title: item.title,
+            source: item.provider || item.source_type || 'Unknown',
+            time: formatTimeAgo(item.published_at),
+            sentiment: item.sentiment || 'neutral',
+            url: item.url
+          };
+        });
         setNewsList(newsItems);
       } else {
         console.error(`[CoinDetail] 뉴스 데이터를 가져올 수 없습니다.`);
@@ -325,14 +380,25 @@ export const CoinDetail: React.FC<Props> = ({ coin, onBack }) => {
       // 소셜 데이터 변환
       if (socialData && socialData.data.length > 0) {
         console.log(`[CoinDetail] 실제 소셜 데이터 사용: ${socialData.data.length}개`);
-        const socialItems: SocialPost[] = socialData.data.map((item: SocialItemResponse) => ({
-          id: item.id,
-          user: item.author_handle || item.author || item.author_name || '@unknown',
-          text: item.content || item.title || '',
-          time: formatTimeAgo(item.published_at),
-          sentiment: item.sentiment || 'neutral',
-          likes: item.score || item.num_comments || 0
-        }));
+        const socialItems: SocialPost[] = socialData.data.map((item: SocialItemResponse) => {
+          // 날짜 디버깅
+          if (import.meta.env.DEV && item.published_at) {
+            console.log(`[CoinDetail] 소셜 날짜:`, {
+              original: item.published_at,
+              type: typeof item.published_at,
+              parsed: new Date(item.published_at),
+              formatted: formatTimeAgo(item.published_at)
+            });
+          }
+          return {
+            id: item.id,
+            user: item.author_handle || item.author || item.author_name || '@unknown',
+            text: item.content || item.title || '',
+            time: formatTimeAgo(item.published_at),
+            sentiment: item.sentiment || 'neutral',
+            likes: item.score || item.num_comments || 0
+          };
+        });
         setSocialList(socialItems);
       } else {
         console.error(`[CoinDetail] 소셜 데이터를 가져올 수 없습니다.`);

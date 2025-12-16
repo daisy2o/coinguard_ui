@@ -41,6 +41,15 @@ export const generateComprehensiveAnalysis = async (
     // 여기서는 환경 변수에서 API 키를 가져옵니다
     const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
     
+    // 디버깅: 환경 변수 확인
+    if (import.meta.env.DEV) {
+      console.log('[GPT] 환경 변수 확인:', {
+        hasKey: !!apiKey,
+        keyLength: apiKey ? apiKey.length : 0,
+        keyPrefix: apiKey ? apiKey.substring(0, 10) + '...' : '없음'
+      });
+    }
+    
     if (!apiKey) {
       console.warn('[GPT] OpenAI API 키가 없습니다. 기본 분석을 사용합니다.');
       return generateDefaultSummary(data);
