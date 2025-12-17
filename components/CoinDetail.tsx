@@ -597,8 +597,7 @@ export const CoinDetail: React.FC<Props> = ({ coin, onBack }) => {
   };
   const newsStats = countSentiment(newsList);
 
-  // 요약에서 사용하는 24h 통계(coin.analysis.stats.social)가 있으면 우선 사용해
-  // 화면의 Sentiment(24h)와 요약이 일치하도록 함. 없으면 현재 socialList 기반 카운트.
+  // 요약/백엔드 집계가 없으면 소셜 24h 바는 숨긴다.
   const socialStats = (() => {
     const analysisSocial = coin.analysis?.stats?.social;
     if (analysisSocial) {
@@ -606,7 +605,7 @@ export const CoinDetail: React.FC<Props> = ({ coin, onBack }) => {
       const positive = Math.max(totalCount - negativeCount, 0);
       return { positive, neutral: 0, negative: negativeCount };
     }
-    return countSentiment(socialList);
+    return null;
   })();
 
   return (
@@ -1105,7 +1104,9 @@ export const CoinDetail: React.FC<Props> = ({ coin, onBack }) => {
                           </div>
                         ) : socialList.length > 0 ? (
                           <>
-                            <SentimentBar positive={socialStats.positive} neutral={socialStats.neutral} negative={socialStats.negative} />
+                            {socialStats && (
+                              <SentimentBar positive={socialStats.positive} neutral={socialStats.neutral} negative={socialStats.negative} />
+                            )}
                             {socialList.map(post => (
                           <div key={post.id} className="p-6 rounded-3xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
                               <div className="flex items-center gap-3 mb-4">
