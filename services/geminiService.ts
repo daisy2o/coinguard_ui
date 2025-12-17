@@ -98,44 +98,33 @@ const generateAnalysisSummary = async (
     })();
 
     const analysisData = {
-      newsStats: {
-        total: newsStats?.total || stats.news.totalCount,
-        positive: newsStats?.stats.find((s: any) => s.sentiment === 'positive')?.count || (stats.news.totalCount - stats.news.negativeCount),
-        neutral: newsStats?.stats.find((s: any) => s.sentiment === 'neutral')?.count || 0,
-        negative: newsStats?.stats.find((s: any) => s.sentiment === 'negative')?.count || stats.news.negativeCount,
-        // percentage가 명시적으로 제공되면 사용 (0도 유효한 값), 없으면 계산
-        negativePercent: (() => {
-          if (newsStats?.stats) {
-            const negativeStat = newsStats.stats.find((s: any) => s.sentiment === 'negative');
-            if (negativeStat && negativeStat.percentage !== undefined && negativeStat.percentage !== null) {
-              return negativeStat.percentage;
-            }
-          }
-          // 폴백: 직접 계산
-          const negativeCount = newsStats?.stats.find((s: any) => s.sentiment === 'negative')?.count || stats.news.negativeCount;
-          const total = newsStats?.total || stats.news.totalCount;
-          return total > 0 ? (negativeCount / total) * 100 : 0;
-        })()
-      },
-      socialStats: {
-        total: socialStats?.total || stats.social.totalCount,
-        positive: socialStats?.stats.find((s: any) => s.sentiment === 'positive')?.count || (stats.social.totalCount - stats.social.negativeCount),
-        neutral: socialStats?.stats.find((s: any) => s.sentiment === 'neutral')?.count || 0,
-        negative: socialStats?.stats.find((s: any) => s.sentiment === 'negative')?.count || stats.social.negativeCount,
-        // 동일한 로직 적용
-        negativePercent: (() => {
-          if (socialStats?.stats) {
-            const negativeStat = socialStats.stats.find((s: any) => s.sentiment === 'negative');
-            if (negativeStat && negativeStat.percentage !== undefined && negativeStat.percentage !== null) {
-              return negativeStat.percentage;
-            }
-          }
-          // 폴백: 직접 계산
-          const negativeCount = socialStats?.stats.find((s: any) => s.sentiment === 'negative')?.count || stats.social.negativeCount;
-          const total = socialStats?.total || stats.social.totalCount;
-          return total > 0 ? (negativeCount / total) * 100 : 0;
-        })()
-      },
+      newsStats: (() => {
+        const total = newsStats?.total ?? stats.news.totalCount;
+        const negative = newsStats?.stats.find((s: any) => s.sentiment === 'negative')?.count ?? stats.news.negativeCount;
+        const positive = newsStats?.stats.find((s: any) => s.sentiment === 'positive')?.count ?? (stats.news.totalCount - stats.news.negativeCount);
+        const neutral = newsStats?.stats.find((s: any) => s.sentiment === 'neutral')?.count ?? 0;
+        return {
+          total,
+          positive,
+          neutral,
+          negative,
+          // 항상 직접 계산해 잘못된 percentage 필드 영향 제거
+          negativePercent: total > 0 ? (negative / total) * 100 : 0
+        };
+      })(),
+      socialStats: (() => {
+        const total = socialStats?.total ?? stats.social.totalCount;
+        const negative = socialStats?.stats.find((s: any) => s.sentiment === 'negative')?.count ?? stats.social.negativeCount;
+        const positive = socialStats?.stats.find((s: any) => s.sentiment === 'positive')?.count ?? (stats.social.totalCount - stats.social.negativeCount);
+        const neutral = socialStats?.stats.find((s: any) => s.sentiment === 'neutral')?.count ?? 0;
+        return {
+          total,
+          positive,
+          neutral,
+          negative,
+          negativePercent: total > 0 ? (negative / total) * 100 : 0
+        };
+      })(),
       onChain: onChainData,
       riskScore: {
         overall: Math.round(overallScore),
