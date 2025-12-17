@@ -32,7 +32,7 @@ import {
 } from 'recharts';
 import { CoinData, PricePoint, NewsItem, SocialPost, OnChainMetric, SentimentType, AnalysisStats } from '../types';
 import { fetchBinancePriceHistory, TimeFrame, CandleData } from '../services/binanceService';
-import { fetchLatestData, NewsItemResponse, SocialItemResponse, fetchCoinMarketData, convertToOnChainMetric } from '../services/sentimentService';
+import { fetchLatestData, NewsItemResponse, SocialItemResponse, fetchCoinMarketData, convertToOnChainMetric, fetchSentimentStats, SentimentStatsResponse } from '../services/sentimentService';
 import { translateToKorean, detectLanguage } from '../services/translationService';
 
 interface Props {
@@ -88,11 +88,21 @@ const generateHistory = (basePrice: number): CandleData[] => {
 };
 
 
-const SentimentBar = ({ positive, neutral, negative }: { positive: number, neutral: number, negative: number }) => {
+const SentimentBar = ({
+  positive,
+  neutral,
+  negative,
+  percentages
+}: {
+  positive: number;
+  neutral: number;
+  negative: number;
+  percentages?: { positive: number; neutral: number; negative: number };
+}) => {
   const total = positive + neutral + negative;
-  const posPct = total ? Math.round((positive / total) * 100) : 0;
-  const neuPct = total ? Math.round((neutral / total) * 100) : 0;
-  const negPct = total ? Math.round((negative / total) * 100) : 0;
+  const posPct = percentages ? Math.round(percentages.positive) : total ? Math.round((positive / total) * 100) : 0;
+  const neuPct = percentages ? Math.round(percentages.neutral) : total ? Math.round((neutral / total) * 100) : 0;
+  const negPct = percentages ? Math.round(percentages.negative) : total ? Math.round((negative / total) * 100) : 0;
 
   return (
     <div className="bg-white p-4 rounded-2xl border border-slate-100 mb-6 shadow-sm">
@@ -135,6 +145,9 @@ export const CoinDetail: React.FC<Props> = ({ coin, onBack }) => {
   // 번역 상태 관리: 각 항목 ID별로 번역 상태 저장
   const [newsTranslations, setNewsTranslations] = useState<Map<string, { translated: string; isTranslating: boolean }>>(new Map());
   const [socialTranslations, setSocialTranslations] = useState<Map<string, { translated: string; isTranslating: boolean }>>(new Map());
+  // 백엔드 집계된 감정 통계
+  const [newsAggregated, setNewsAggregated] = useState<SentimentStatsResponse | null>(null);
+  const [socialAggregated, setSocialAggregated] = useState<SentimentStatsResponse | null>(null);
 
   // 시간대별 데이터 가져오기
   useEffect(() => {
@@ -435,7 +448,7 @@ export const CoinDetail: React.FC<Props> = ({ coin, onBack }) => {
       console.log(`[CoinDetail] ${coin.symbol} 데이터 로딩 시작...`);
       
       // API에서 최신 데이터 가져오기
-      const [newsData, socialData, coinMarketData] = await Promise.all([
+      const [newsData, socialData, coinMarketData, newsStats24h, socialStats24h] = await Promise.all([
         fetchLatestData(coin.symbol, 'news', 1, 20).catch(err => {
           console.error(`[CoinDetail] fetchLatestData(news) 실패:`, err);
           return null;
@@ -447,13 +460,23 @@ export const CoinDetail: React.FC<Props> = ({ coin, onBack }) => {
         fetchCoinMarketData(coin.symbol).catch(err => {
           console.error(`[CoinDetail] fetchCoinMarketData 실패:`, err);
           return null;
+        }),
+        fetchSentimentStats(coin.symbol, 'news', 24).catch(err => {
+          console.error(`[CoinDetail] fetchSentimentStats(news) 실패:`, err);
+          return null;
+        }),
+        fetchSentimentStats(coin.symbol, 'social', 24).catch(err => {
+          console.error(`[CoinDetail] fetchSentimentStats(social) 실패:`, err);
+          return null;
         })
       ]);
       
       console.log(`[CoinDetail] API 응답:`, {
         news: newsData ? `${newsData.data.length}개` : '실패',
         social: socialData ? `${socialData.data.length}개` : '실패',
-        market: coinMarketData ? '성공' : '실패'
+        market: coinMarketData ? '성공' : '실패',
+        newsStats: newsStats24h ? `성공 (total: ${newsStats24h.total})` : '실패',
+        socialStats: socialStats24h ? `성공 (total: ${socialStats24h.total})` : '실패'
       });
       
       // 뉴스 데이터 변환
@@ -483,6 +506,9 @@ export const CoinDetail: React.FC<Props> = ({ coin, onBack }) => {
         console.error(`[CoinDetail] 뉴스 데이터를 가져올 수 없습니다.`);
         setNewsList([]);
       }
+      
+      // 뉴스 집계 저장
+      setNewsAggregated(newsStats24h);
       
       // 소셜 데이터 변환
       if (socialData && socialData.data.length > 0) {
@@ -525,6 +551,9 @@ export const CoinDetail: React.FC<Props> = ({ coin, onBack }) => {
         console.error(`[CoinDetail] 소셜 데이터를 가져올 수 없습니다.`);
         setSocialList([]);
       }
+      
+      // 소셜 집계 저장
+      setSocialAggregated(socialStats24h);
       
       // 온체인 데이터 설정 (CoinGecko 데이터 사용)
       if (coinMarketData) {
@@ -623,27 +652,38 @@ export const CoinDetail: React.FC<Props> = ({ coin, onBack }) => {
   const countSentiment = (items: { sentiment: SentimentType }[]) => {
     return items.reduce((acc, item) => { acc[item.sentiment]++; return acc; }, { positive: 0, neutral: 0, negative: 0 });
   };
-  const newsStats = (() => {
-    const analysisNews = coin.analysis?.stats?.news;
-    if (analysisNews) {
-      const { totalCount = 0, negativeCount = 0 } = analysisNews;
-      const positive = Math.max(totalCount - negativeCount, 0);
-      // neutral 정보가 없으므로 0으로 두고, 총합은 positive+negative로만 사용
-      return { positive, neutral: 0, negative: negativeCount };
-    }
-    return countSentiment(newsList);
-  })();
+  const extractAggregatedStats = (resp: SentimentStatsResponse | null) => {
+    if (!resp?.stats || !Array.isArray(resp.stats)) return null;
+    const total = typeof resp.total === 'number' ? resp.total : 0;
+    const posStat = resp.stats.find(s => s.sentiment === 'positive');
+    const neuStat = resp.stats.find(s => s.sentiment === 'neutral');
+    const negStat = resp.stats.find(s => s.sentiment === 'negative');
+    const positiveCount = posStat?.count || 0;
+    const neutralCount = neuStat?.count || 0;
+    const negativeCount = negStat?.count || 0;
+    const safePct = (statPct: number | null | undefined, count: number) => {
+      if (statPct !== undefined && statPct !== null && !isNaN(statPct)) return statPct;
+      return total > 0 ? (count / total) * 100 : 0;
+    };
+    return {
+      counts: { positive: positiveCount, neutral: neutralCount, negative: negativeCount },
+      percentages: {
+        positive: safePct(posStat?.percentage, positiveCount),
+        neutral: safePct(neuStat?.percentage, neutralCount),
+        negative: safePct(negStat?.percentage, negativeCount)
+      }
+    };
+  };
+
+  const newsAggregatedStats = extractAggregatedStats(newsAggregated);
+  const socialAggregatedStats = extractAggregatedStats(socialAggregated);
+
+  const newsStats = newsAggregatedStats ? newsAggregatedStats.counts : countSentiment(newsList);
+  const newsPercentages = newsAggregatedStats ? newsAggregatedStats.percentages : undefined;
 
   // 소셜도 집계 우선, 없으면 리스트 카운트로 폴백
-  const socialStats = (() => {
-    const analysisSocial = coin.analysis?.stats?.social;
-    if (analysisSocial) {
-      const { totalCount = 0, negativeCount = 0 } = analysisSocial;
-      const positive = Math.max(totalCount - negativeCount, 0);
-      return { positive, neutral: 0, negative: negativeCount };
-    }
-    return countSentiment(socialList);
-  })();
+  const socialStats = socialAggregatedStats ? socialAggregatedStats.counts : countSentiment(socialList);
+  const socialPercentages = socialAggregatedStats ? socialAggregatedStats.percentages : undefined;
 
   return (
     <div className="fixed inset-0 z-50 bg-[#F2F4F8] overflow-y-auto animate-fade-in-up">
@@ -1071,7 +1111,12 @@ export const CoinDetail: React.FC<Props> = ({ coin, onBack }) => {
                           </div>
                         ) : newsList.length > 0 ? (
                           <>
-                            <SentimentBar positive={newsStats.positive} neutral={newsStats.neutral} negative={newsStats.negative} />
+                            <SentimentBar
+                              positive={newsStats.positive}
+                              neutral={newsStats.neutral}
+                              negative={newsStats.negative}
+                              percentages={newsPercentages}
+                            />
                             {newsList.map(news => (
                           <a 
                             key={news.id} 
@@ -1141,9 +1186,12 @@ export const CoinDetail: React.FC<Props> = ({ coin, onBack }) => {
                           </div>
                         ) : socialList.length > 0 ? (
                           <>
-                            {socialStats && (
-                              <SentimentBar positive={socialStats.positive} neutral={socialStats.neutral} negative={socialStats.negative} />
-                            )}
+                            <SentimentBar
+                              positive={socialStats.positive}
+                              neutral={socialStats.neutral}
+                              negative={socialStats.negative}
+                              percentages={socialPercentages}
+                            />
                             {socialList.map(post => (
                           <div key={post.id} className="p-6 rounded-3xl bg-white border border-slate-100 shadow-sm hover:shadow-md transition-shadow">
                               <div className="flex items-center gap-3 mb-4">
