@@ -596,7 +596,18 @@ export const CoinDetail: React.FC<Props> = ({ coin, onBack }) => {
     return items.reduce((acc, item) => { acc[item.sentiment]++; return acc; }, { positive: 0, neutral: 0, negative: 0 });
   };
   const newsStats = countSentiment(newsList);
-  const socialStats = countSentiment(socialList);
+
+  // 요약에서 사용하는 24h 통계(coin.analysis.stats.social)가 있으면 우선 사용해
+  // 화면의 Sentiment(24h)와 요약이 일치하도록 함. 없으면 현재 socialList 기반 카운트.
+  const socialStats = (() => {
+    const analysisSocial = coin.analysis?.stats?.social;
+    if (analysisSocial) {
+      const { totalCount = 0, negativeCount = 0 } = analysisSocial;
+      const positive = Math.max(totalCount - negativeCount, 0);
+      return { positive, neutral: 0, negative: negativeCount };
+    }
+    return countSentiment(socialList);
+  })();
 
   return (
     <div className="fixed inset-0 z-50 bg-[#F2F4F8] overflow-y-auto animate-fade-in-up">
