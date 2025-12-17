@@ -128,7 +128,9 @@ export const fetchSentimentStats = async (
 ): Promise<SentimentStatsResponse | null> => {
   try {
     const coinType = getCoinType(symbol);
-    const coinParam = coinType ? `&coin=${coinType}` : '';
+    // 백엔드가 코인별 필터를 지원하므로, 지원되는 심볼이면 변환값 사용,
+    // 아니면 원본 심볼(대문자)도 전달해 최대한 코인별 통계를 시도한다.
+    const coinParam = `&coin=${coinType || symbol.toUpperCase()}`;
     const url = `${API_BASE_URL}/api/sentiment/stats?type=${type}&hours=${hours}${coinParam}`;
     console.log(`[API] 호출: ${url} (${symbol} -> ${coinType || 'N/A'})`);
     
