@@ -364,6 +364,42 @@ export const CoinDetail: React.FC<Props> = ({ coin, onBack }) => {
     return isNaN(timestamp) ? 0 : timestamp;
   };
 
+  const normalizeTimestamp = (value: any): number => {
+    if (value === undefined || value === null) return 0;
+    // 숫자(초/밀리초) 처리
+    if (typeof value === 'number') {
+      if (value > 1e12) return value;       // 밀리초
+      if (value > 1e9) return value * 1000; // 초 -> 밀리초
+    }
+    // 문자열/Date 파싱
+    const ts = new Date(value).getTime();
+    return isNaN(ts) ? 0 : ts;
+  };
+
+  const getSocialTimestamp = (item: SocialItemResponse, idx: number): number => {
+    const candidates = [
+      (item as any)?.created_utc ? normalizeTimestamp((item as any).created_utc * 1000) : 0, // Reddit epoch seconds
+      item.published_at,
+      (item as any)?.publishedAt,
+      (item as any)?.created_at,
+      (item as any)?.createdAt,
+      (item as any)?.fetched_at,
+      (item as any)?.fetchedAt,
+      (item as any)?.timestamp,
+      (item as any)?.time,
+      (item as any)?.datetime,
+      (item as any)?.date,
+      (item as any)?.updated_at,
+      (item as any)?.updatedAt,
+    ];
+    for (const c of candidates) {
+      const ts = normalizeTimestamp(c);
+      if (ts) return ts;
+    }
+    // 타임스탬프가 없으면 응답 순서를 보존하되 하단에 배치
+    return -idx;
+  };
+
   useEffect(() => {
     const loadData = async () => {
       const stats = coin.analysis?.stats;
@@ -423,9 +459,21 @@ export const CoinDetail: React.FC<Props> = ({ coin, onBack }) => {
       // 소셜 데이터 변환
       if (socialData && socialData.data.length > 0) {
         console.log(`[CoinDetail] 실제 소셜 데이터 사용: ${socialData.data.length}개`);
-        const socialItems: SocialPost[] = [...socialData.data]
-          .sort((a: SocialItemResponse, b: SocialItemResponse) => getTimeValue(b.published_at) - getTimeValue(a.published_at))
-          .map((item: SocialItemResponse) => {
+        const socialItems: SocialPost[] = socialData.data
+          .map((item: SocialItemResponse, idx: number) => ({
+            item,
+            ts: getSocialTimestamp(item, idx)
+          }))
+          .sort((a, b) => b.ts - a.ts)
+          .map(({ item }) => {
+          if (import.meta.env.DEV) {
+            console.log(`[CoinDetail] 소셜 정렬 정보`, {
+              id: item.id,
+              published_at: item.published_at,
+              created_utc: (item as any)?.created_utc,
+              ts: getSocialTimestamp(item, 0)
+            });
+          }
           // 날짜 디버깅
           if (import.meta.env.DEV && item.published_at) {
             console.log(`[CoinDetail] 소셜 날짜:`, {

@@ -128,7 +128,8 @@ export const fetchSentimentStats = async (
 ): Promise<SentimentStatsResponse | null> => {
   try {
     const coinType = getCoinType(symbol);
-    const url = `${API_BASE_URL}/api/sentiment/stats?type=${type}&hours=${hours}`;
+    const coinParam = coinType ? `&coin=${coinType}` : '';
+    const url = `${API_BASE_URL}/api/sentiment/stats?type=${type}&hours=${hours}${coinParam}`;
     console.log(`[API] 호출: ${url} (${symbol} -> ${coinType || 'N/A'})`);
     
     const response = await fetchWithTimeout(url);
