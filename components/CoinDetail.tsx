@@ -364,12 +364,40 @@ export const CoinDetail: React.FC<Props> = ({ coin, onBack }) => {
     return isNaN(timestamp) ? 0 : timestamp;
   };
 
+  const parseRelativeTime = (value: string): number => {
+    const now = Date.now();
+    const patterns = [
+      { regex: /(\d+)\s*초\s*전/, unitMs: 1000 },
+      { regex: /(\d+)\s*분\s*전/, unitMs: 60 * 1000 },
+      { regex: /(\d+)\s*시간\s*전/, unitMs: 60 * 60 * 1000 },
+      { regex: /(\d+)\s*일\s*전/, unitMs: 24 * 60 * 60 * 1000 },
+      { regex: /(\d+)\s*s\s*ago/i, unitMs: 1000 },
+      { regex: /(\d+)\s*m(in)?\s*ago/i, unitMs: 60 * 1000 },
+      { regex: /(\d+)\s*h(our)?s?\s*ago/i, unitMs: 60 * 60 * 1000 },
+      { regex: /(\d+)\s*d(ay)?s?\s*ago/i, unitMs: 24 * 60 * 60 * 1000 },
+    ];
+    for (const { regex, unitMs } of patterns) {
+      const match = value.match(regex);
+      if (match && match[1]) {
+        const n = parseInt(match[1], 10);
+        if (!isNaN(n)) return now - n * unitMs;
+      }
+    }
+    if (/just\s*now/i.test(value) || /방금\s*전/.test(value)) return now;
+    return NaN;
+  };
+
   const normalizeTimestamp = (value: any): number => {
     if (value === undefined || value === null) return 0;
     // 숫자(초/밀리초) 처리
     if (typeof value === 'number') {
       if (value > 1e12) return value;       // 밀리초
       if (value > 1e9) return value * 1000; // 초 -> 밀리초
+    }
+    // 상대 시간 문자열 처리 ("8시간 전", "3h ago" 등)
+    if (typeof value === 'string') {
+      const rel = parseRelativeTime(value);
+      if (!isNaN(rel)) return rel;
     }
     // 문자열/Date 파싱
     const ts = new Date(value).getTime();
