@@ -623,9 +623,18 @@ export const CoinDetail: React.FC<Props> = ({ coin, onBack }) => {
   const countSentiment = (items: { sentiment: SentimentType }[]) => {
     return items.reduce((acc, item) => { acc[item.sentiment]++; return acc; }, { positive: 0, neutral: 0, negative: 0 });
   };
-  const newsStats = countSentiment(newsList);
+  const newsStats = (() => {
+    const analysisNews = coin.analysis?.stats?.news;
+    if (analysisNews) {
+      const { totalCount = 0, negativeCount = 0 } = analysisNews;
+      const positive = Math.max(totalCount - negativeCount, 0);
+      // neutral 정보가 없으므로 0으로 두고, 총합은 positive+negative로만 사용
+      return { positive, neutral: 0, negative: negativeCount };
+    }
+    return countSentiment(newsList);
+  })();
 
-  // 요약/백엔드 집계가 없으면 소셜 24h 바는 숨긴다.
+  // 소셜도 집계 우선, 없으면 리스트 카운트로 폴백
   const socialStats = (() => {
     const analysisSocial = coin.analysis?.stats?.social;
     if (analysisSocial) {
@@ -633,7 +642,7 @@ export const CoinDetail: React.FC<Props> = ({ coin, onBack }) => {
       const positive = Math.max(totalCount - negativeCount, 0);
       return { positive, neutral: 0, negative: negativeCount };
     }
-    return null;
+    return countSentiment(socialList);
   })();
 
   return (
