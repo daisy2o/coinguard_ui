@@ -358,6 +358,12 @@ export const CoinDetail: React.FC<Props> = ({ coin, onBack }) => {
     }
   };
 
+  const getTimeValue = (date: Date | string | undefined): number => {
+    if (!date) return 0;
+    const timestamp = new Date(date).getTime();
+    return isNaN(timestamp) ? 0 : timestamp;
+  };
+
   useEffect(() => {
     const loadData = async () => {
       const stats = coin.analysis?.stats;
@@ -417,7 +423,9 @@ export const CoinDetail: React.FC<Props> = ({ coin, onBack }) => {
       // 소셜 데이터 변환
       if (socialData && socialData.data.length > 0) {
         console.log(`[CoinDetail] 실제 소셜 데이터 사용: ${socialData.data.length}개`);
-        const socialItems: SocialPost[] = socialData.data.map((item: SocialItemResponse) => {
+        const socialItems: SocialPost[] = [...socialData.data]
+          .sort((a: SocialItemResponse, b: SocialItemResponse) => getTimeValue(b.published_at) - getTimeValue(a.published_at))
+          .map((item: SocialItemResponse) => {
           // 날짜 디버깅
           if (import.meta.env.DEV && item.published_at) {
             console.log(`[CoinDetail] 소셜 날짜:`, {
